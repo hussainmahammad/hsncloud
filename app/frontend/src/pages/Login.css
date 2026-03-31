@@ -1,0 +1,246 @@
+/* Login.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --primary-blue: #5b96e1;
+  --primary-hover: #4a85d0;
+  --bg-soft: #f8fafc;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --input-bg: #fcfdfe;
+  --white: #ffffff;
+  --shadow-soft: 0 10px 40px -15px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== PAGE ===== */
+.login-page-container {
+  height: 100vh;              /* FIX: no scroll */
+  width: 100%;
+  overflow: hidden;           /* 🔥 removes scroll */
+  background-color: var(--bg-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ===== WRAPPER ===== */
+.login-content-wrapper {
+  max-width: 1100px;
+  width: 100%;
+  height: 100%;               /* full height */
+  display: flex;
+  align-items: center;        /* vertical center */
+  justify-content: space-between;
+  gap: 200px;
+}
+
+/* ===== LEFT SECTION (PERFECT CENTER FIX) ===== */
+.left-section {
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;   /* 🔥 THIS WAS BREAKING BEFORE */
+  
+  align-items: center;      /* center horizontally */
+  justify-content: center;  /* center vertically */
+
+  text-align: center;
+}
+
+/* Brand Header */
+.brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  margin-bottom: 20px;
+}
+
+.logo-icon {
+  width: 95px;
+}
+
+.brand-title {
+  font-size: 22px;
+  margin: 0;
+}
+
+.brand-dark {
+  color: #1e293b;
+}
+
+.brand-blue {
+  color: #3b82f6;
+}
+
+.brand-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Illustration */
+.illustration-img {
+  width: 100%;
+  max-width: 360px;   /* 🔥 reduced to avoid overflow */
+  margin: 20px 0;
+}
+
+/* Bottom Text */
+.hero-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+/* ===== RIGHT SECTION ===== */
+.right-section {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center; /* center card vertically */
+}
+
+.login-card {
+  background: var(--white);
+  padding: 40px;   /* slightly reduced */
+  border-radius: 24px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(0, 0, 0, 0.02);
+}
+
+/* Header */
+.header-area {
+  margin-bottom: 28px;
+}
+
+.header-area h2 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 6px;
+}
+
+.header-area p {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ===== FORM ===== */
+.input-group {
+  margin-bottom: 18px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 6px;
+}
+
+.input-group input {
+  width: 100%;
+  box-sizing: border-box; /* 🔥 important */
+  padding: 12px 14px;
+  background: var(--input-bg);
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.15);
+  background: var(--white);
+}
+
+.forgot-link {
+  display: block;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--primary-blue);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-btn:hover {
+  background: var(--primary-hover);
+}
+
+.signup-footer {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.signup-btn {
+  color: var(--primary-blue);
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.password-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-wrapper input {
+  width: 100%;
+  padding: 12px 60px 12px 14px; /* space for text */
+}
+
+.toggle-eye {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  font-size: 13px;
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.forgot-link {
+  cursor: pointer;  /* 🔥 important */
+}
+
+.forgot-link {
+  display: block;
+  text-align: right;
+  font-size: 12px;
+  color: #3b82f6;   /* 🔥 BLUE */
+  cursor: pointer;  /* 🔥 CLICKABLE */
+  margin-top: 6px;
+}
+
+.forgot-link:hover {
+  text-decoration: underline; /* 🔥 NICE UX */
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .left-section {
+    display: none;
+  }
+}
