@@ -1,6 +1,6 @@
 resource "aws_cloudfront_distribution" "cdn" {
   origin {
-    domain_name = data.aws_s3_bucket.frontend.bucket_regional_domain_name
+    domain_name = aws_s3_bucket.frontend.bucket_regional_domain_name
     origin_id   = "s3-origin"
   }
 
