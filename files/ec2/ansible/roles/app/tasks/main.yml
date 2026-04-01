@@ -9,6 +9,11 @@
   args:
     executable: /bin/bash
 
+- name: Install MySQL client
+  apt:
+    name: mysql-client
+    state: present
+
 - name: Install PM2
   npm:
     name: pm2
@@ -36,6 +41,23 @@
   template:
     src: env.j2
     dest: /home/ubuntu/app/backend/.env
+
+- name: Copy SQL file
+  copy:
+    src: init.sql
+    dest: /home/ubuntu/init.sql
+
+- name: Wait for DB to be ready
+  shell: |
+    for i in {1..30}; do
+      mysql -h {{ db_host }} -u {{ db_user }} -p{{ db_pass }} -e "SELECT 1" && exit 0
+      sleep 10
+    done
+    exit 1
+
+- name: Run DB initialization
+  shell: |
+    mysql -h {{ db_host }} -u {{ db_user }} -p{{ db_pass }} {{ db_name }} < /home/ubuntu/init.sql
 
 - name: Start backend with PM2
   shell: |
