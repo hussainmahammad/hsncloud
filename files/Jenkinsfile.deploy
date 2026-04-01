@@ -1,1 +1,207 @@
+pipeline {
+  agent any
 
+  environment {
+    AWS_REGION = "us-east-1"
+
+    TF_DIR = "files/ec2/terraform"
+    ANSIBLE_DIR = "files/ec2/ansible"
+    SCRIPTS_DIR = "files/ec2/scripts"
+  }
+
+  parameters {
+    choice(
+      name: 'DEPLOY_TARGET',
+      choices: ['ec2'],
+      description: 'Choose deployment target'
+    )
+  }
+
+  stages {
+
+    /* =======================
+       PREPARE
+       ======================= */
+    stage('Prepare') {
+      steps {
+        checkout scm
+      }
+    }
+
+    /* =======================
+       BUILD
+       ======================= */
+    stage('Build') {
+      steps {
+        sh '''
+          echo "=============================="
+          echo "Building Frontend"
+          echo "=============================="
+
+          cd app/frontend
+          npm install
+          npm run build
+          cd ../..
+        '''
+      }
+    }
+
+    /* =======================
+       SETUP
+       ======================= */
+    stage('Setup') {
+      steps {
+        script {
+          if (params.DEPLOY_TARGET == 'ec2') {
+            sh '''
+              echo "Setup Stage (No infra changes here)"
+            '''
+          }
+        }
+      }
+    }
+
+    /* =======================
+       DEPLOY
+       ======================= */
+    stage('Deploy') {
+      steps {
+        script {
+          if (params.DEPLOY_TARGET == 'ec2') {
+
+            withCredentials([
+              [$class: 'AmazonWebServicesCredentialsBinding',
+               credentialsId: 'account-c-aws']
+            ]) {
+
+              sh '''
+                set -e
+
+                echo "=============================="
+                echo "Terraform Apply"
+                echo "=============================="
+                cd ${TF_DIR}
+                terraform init
+                terraform apply -auto-approve
+                cd ../..
+              '''
+
+              script {
+                env.ALB_DNS = sh(
+                  script: "cd ${TF_DIR} && terraform output -raw alb_dns",
+                  returnStdout: true
+                ).trim()
+
+                env.EC2_IP = sh(
+                  script: "cd ${TF_DIR} && terraform output -raw ec2_public_ip",
+                  returnStdout: true
+                ).trim()
+
+                env.CF_URL = sh(
+                  script: "cd ${TF_DIR} && terraform output -raw cloudfront_url",
+                  returnStdout: true
+                ).trim()
+              }
+
+              sh '''
+                echo "[app]" > ${ANSIBLE_DIR}/inventory.ini
+                echo "${EC2_IP} ansible_user=ubuntu" >> ${ANSIBLE_DIR}/inventory.ini
+              '''
+
+              sshagent(['hsncloud-key']) {
+                sh '''
+                  cd ${ANSIBLE_DIR}
+
+                  ansible-playbook deploy.yml \
+                    -e "db_host=$DB_HOST \
+                        db_user=$DB_USER \
+                        db_pass=$DB_PASS \
+                        db_name=$DB_NAME \
+                        jwt_secret=$JWT_SECRET \
+                        s3_bucket=$S3_BUCKET \
+                        ses_email=$SES_EMAIL \
+                        app_public_url=http://$ALB_DNS"
+                '''
+              }
+
+              sh '''
+                ${SCRIPTS_DIR}/upload-frontend.sh $S3_BUCKET
+              '''
+
+              sh '''
+                ${SCRIPTS_DIR}/invalidate-cache.sh $CF_ID
+              '''
+            }
+          }
+        }
+      }
+    }
+
+    /* =======================
+       VALIDATE
+       ======================= */
+    stage('Validate') {
+      steps {
+        script {
+          if (params.DEPLOY_TARGET == 'ec2') {
+
+            sh '''
+              echo "=============================="
+              echo "Validating Deployment"
+              echo "=============================="
+
+              echo "Waiting for services..."
+              sleep 30
+
+              echo "Checking Backend..."
+
+              for i in {1..30}; do
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/api/health || true)
+
+                if [ "$STATUS" = "200" ]; then
+                  echo "Backend OK"
+                  break
+                fi
+
+                sleep 10
+              done
+
+              echo "Checking Frontend..."
+
+              for i in {1..30}; do
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://$CF_URL || true)
+
+                if [ "$STATUS" = "200" ]; then
+                  echo "Frontend OK"
+
+                  echo "===OBS_START==="
+                  echo "OBS_RUNTIME=ec2"
+                  echo "OBS_ENDPOINT=https://${CF_URL}"
+                  echo "OBS_METRICS_ENABLED=false"
+                  echo "===OBS_END==="
+
+                  exit 0
+                fi
+
+                sleep 10
+              done
+
+              echo "ERROR: Application not reachable"
+              exit 1
+            '''
+          }
+        }
+      }
+    }
+
+    /* =======================
+       COMPLETE
+       ======================= */
+    stage('Complete') {
+      steps {
+        sh 'true'
+      }
+    }
+
+  }
+}
