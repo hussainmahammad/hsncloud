@@ -1,1 +1,46 @@
+- name: Update apt
+  apt:
+    update_cache: yes
 
+- name: Install Node.js
+  shell: |
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+    apt-get install -y nodejs
+  args:
+    executable: /bin/bash
+
+- name: Install PM2
+  npm:
+    name: pm2
+    global: yes
+
+- name: Create app directory
+  file:
+    path: /home/ubuntu/app
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+
+- name: Copy backend code
+  copy:
+    src: ../../../app/backend/
+    dest: /home/ubuntu/app/backend/
+    owner: ubuntu
+    group: ubuntu
+
+- name: Install backend dependencies
+  npm:
+    path: /home/ubuntu/app/backend/
+
+- name: Create .env file
+  template:
+    src: env.j2
+    dest: /home/ubuntu/app/backend/.env
+
+- name: Start backend with PM2
+  shell: |
+    pm2 delete all || true
+    pm2 start server.js --name hsncloud
+    pm2 save
+  args:
+    chdir: /home/ubuntu/app/backend
