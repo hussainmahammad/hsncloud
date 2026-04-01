@@ -1,0 +1,55 @@
+CREATE TABLE IF NOT EXISTS users (
+  id INT NOT NULL AUTO_INCREMENT,
+  first_name VARCHAR(100) NOT NULL,
+  last_name VARCHAR(100) NOT NULL,
+  email VARCHAR(150) NOT NULL,
+  password VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  is_verified TINYINT(1) DEFAULT 0,
+  verification_token VARCHAR(255),
+  reset_token VARCHAR(255),
+  reset_token_expiry DATETIME,
+  ses_status VARCHAR(20) DEFAULT 'Pending',
+  ses_requested_at DATETIME,
+  ses_expiry_at DATETIME,
+  PRIMARY KEY (id),
+  UNIQUE KEY email (email)
+);
+
+CREATE TABLE IF NOT EXISTS folders (
+  id INT NOT NULL AUTO_INCREMENT,
+  user_id INT NOT NULL,
+  folder_name VARCHAR(255) NOT NULL,
+  parent_id INT,
+  is_deleted TINYINT(1) DEFAULT 0,
+  is_starred TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS files (
+  id INT NOT NULL AUTO_INCREMENT,
+  user_id INT NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  file_type VARCHAR(100),
+  file_size BIGINT,
+  file_url TEXT NOT NULL,
+  file_key VARCHAR(255) NOT NULL,
+  folder_id INT,
+  is_deleted TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE IF NOT EXISTS shares (
+  id INT NOT NULL AUTO_INCREMENT,
+  file_id INT NOT NULL,
+  user_id INT NOT NULL,
+  token VARCHAR(255) NOT NULL,
+  expires_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY token (token)
+);
