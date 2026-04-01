@@ -1,1 +1,121 @@
+pipeline {
+  agent any
 
+  environment {
+    AWS_REGION = "us-east-1"
+    TF_DIR = "files/ec2/terraform"
+  }
+
+  parameters {
+    choice(
+      name: 'DESTROY_TARGET',
+      choices: ['ec2'],
+      description: 'Choose what to destroy'
+    )
+  }
+
+  stages {
+
+    /* =======================
+       COMPLETE
+       ======================= */
+    stage('Complete') {
+      steps {
+        checkout scm
+      }
+    }
+
+    /* =======================
+       VALIDATE
+       ======================= */
+    stage('Validate') {
+      steps {
+        sh '''
+          echo "Destroy validate stage started..."
+          sleep 5
+          echo "Destroy validate stage completed."
+        '''
+      }
+    }
+
+    /* =======================
+       DEPLOY (DESTROY LOGIC)
+       ======================= */
+    stage('Deploy') {
+      when {
+        expression {
+          params.DESTROY_TARGET == 'ec2'
+        }
+      }
+      steps {
+        script {
+          withCredentials([
+            [$class: 'AmazonWebServicesCredentialsBinding',
+             credentialsId: 'account-c-aws']
+          ]) {
+            sh '''
+              set +e
+
+              echo "=============================="
+              echo "Destroying EC2 infrastructure"
+              echo "=============================="
+
+              cd ${TF_DIR}
+
+              terraform init
+              terraform destroy -auto-approve
+
+              echo ""
+              echo "✅ EC2 infrastructure destroyed successfully"
+
+              echo "===OBS_START==="
+              echo "OBS_RUNTIME=ec2"
+              echo "OBS_STATUS=destroyed"
+              echo "===OBS_END==="
+            '''
+          }
+        }
+      }
+    }
+
+    /* =======================
+       SETUP
+       ======================= */
+    stage('Setup') {
+      steps {
+        sh '''
+          echo "Destroy setup stage started..."
+          sleep 5
+          echo "Destroy setup stage completed."
+        '''
+      }
+    }
+
+    /* =======================
+       BUILD
+       ======================= */
+    stage('Build') {
+      steps {
+        sh '''
+          echo "Destroy build stage started..."
+          sleep 5
+          echo "Destroy build stage completed."
+        '''
+      }
+    }
+
+    /* =======================
+       PREPARE
+       ======================= */
+    stage('Prepare') {
+      steps {
+        sh '''
+          echo "Destroy prepare stage started..."
+          sleep 5
+          echo "Destroy prepare stage completed."
+        '''
+      }
+    }
+
+  }
+}
