@@ -53,9 +53,7 @@ pipeline {
       steps {
         script {
           if (params.DEPLOY_TARGET == 'ec2') {
-            sh '''
-              echo "Setup Stage (No infra changes here)"
-            '''
+            sh 'echo "Setup Stage (No infra changes here)"'
           }
         }
       }
@@ -76,38 +74,34 @@ pipeline {
 
               sh '''
                 set -e
-
-                echo "=============================="
-                echo "Terraform Apply"
-                echo "=============================="
                 cd ${TF_DIR}
                 terraform init
                 terraform apply -auto-approve
                 cd ../..
               '''
 
+              /* 🔥 FETCH ALL OUTPUTS */
               script {
-                env.ALB_DNS = sh(
-                  script: "cd ${TF_DIR} && terraform output -raw alb_dns",
-                  returnStdout: true
-                ).trim()
+                env.ALB_DNS = sh(script: "cd ${TF_DIR} && terraform output -raw alb_dns", returnStdout: true).trim()
+                env.EC2_IP = sh(script: "cd ${TF_DIR} && terraform output -raw ec2_public_ip", returnStdout: true).trim()
+                env.CF_URL = sh(script: "cd ${TF_DIR} && terraform output -raw cloudfront_url", returnStdout: true).trim()
 
-                env.EC2_IP = sh(
-                  script: "cd ${TF_DIR} && terraform output -raw ec2_public_ip",
-                  returnStdout: true
-                ).trim()
+                env.DB_HOST = sh(script: "cd ${TF_DIR} && terraform output -raw db_endpoint", returnStdout: true).trim()
+                env.DB_NAME = sh(script: "cd ${TF_DIR} && terraform output -raw db_name", returnStdout: true).trim()
+                env.DB_USER = sh(script: "cd ${TF_DIR} && terraform output -raw db_user", returnStdout: true).trim()
+                env.DB_PASS = sh(script: "cd ${TF_DIR} && terraform output -raw db_password", returnStdout: true).trim()
 
-                env.CF_URL = sh(
-                  script: "cd ${TF_DIR} && terraform output -raw cloudfront_url",
-                  returnStdout: true
-                ).trim()
+                env.S3_BUCKET = sh(script: "cd ${TF_DIR} && terraform output -raw s3_bucket_name", returnStdout: true).trim()
+                env.CF_ID = sh(script: "cd ${TF_DIR} && terraform output -raw cloudfront_id", returnStdout: true).trim()
               }
 
+              /* INVENTORY */
               sh '''
                 echo "[app]" > ${ANSIBLE_DIR}/inventory.ini
                 echo "${EC2_IP} ansible_user=ubuntu" >> ${ANSIBLE_DIR}/inventory.ini
               '''
 
+              /* DEPLOY BACKEND */
               sshagent(['hsncloud-key']) {
                 sh '''
                   cd ${ANSIBLE_DIR}
@@ -124,13 +118,11 @@ pipeline {
                 '''
               }
 
-              sh '''
-                ${SCRIPTS_DIR}/upload-frontend.sh $S3_BUCKET
-              '''
+              /* FRONTEND */
+              sh '${SCRIPTS_DIR}/upload-frontend.sh $S3_BUCKET'
 
-              sh '''
-                ${SCRIPTS_DIR}/invalidate-cache.sh $CF_ID
-              '''
+              /* CACHE */
+              sh '${SCRIPTS_DIR}/invalidate-cache.sh $CF_ID'
             }
           }
         }
@@ -146,47 +138,30 @@ pipeline {
           if (params.DEPLOY_TARGET == 'ec2') {
 
             sh '''
-              echo "=============================="
-              echo "Validating Deployment"
-              echo "=============================="
-
               echo "Waiting for services..."
-              sleep 30
+              sleep 40
 
               echo "Checking Backend..."
-
               for i in {1..30}; do
                 STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/api/health || true)
-
-                if [ "$STATUS" = "200" ]; then
-                  echo "Backend OK"
-                  break
-                fi
-
+                [ "$STATUS" = "200" ] && break
                 sleep 10
               done
 
               echo "Checking Frontend..."
-
               for i in {1..30}; do
                 STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://$CF_URL || true)
-
                 if [ "$STATUS" = "200" ]; then
-                  echo "Frontend OK"
-
                   echo "===OBS_START==="
                   echo "OBS_RUNTIME=ec2"
                   echo "OBS_ENDPOINT=https://${CF_URL}"
                   echo "OBS_METRICS_ENABLED=false"
                   echo "===OBS_END==="
-
                   exit 0
                 fi
-
                 sleep 10
               done
 
-              echo "ERROR: Application not reachable"
               exit 1
             '''
           }
