@@ -7,6 +7,10 @@ pipeline {
     TF_DIR = "files/ec2/terraform"
     ANSIBLE_DIR = "files/ec2/ansible"
     SCRIPTS_DIR = "files/ec2/scripts"
+
+    // TEMP HARDCODE (for now)
+    JWT_SECRET = "supersecretkey"
+    SES_EMAIL  = "noreply@hussaincloud.online"
   }
 
   parameters {
@@ -19,18 +23,12 @@ pipeline {
 
   stages {
 
-    /* =======================
-       PREPARE
-       ======================= */
     stage('Prepare') {
       steps {
         checkout scm
       }
     }
 
-    /* =======================
-       BUILD
-       ======================= */
     stage('Build') {
       steps {
         sh '''
@@ -46,9 +44,6 @@ pipeline {
       }
     }
 
-    /* =======================
-       SETUP
-       ======================= */
     stage('Setup') {
       steps {
         script {
@@ -59,9 +54,6 @@ pipeline {
       }
     }
 
-    /* =======================
-       DEPLOY
-       ======================= */
     stage('Deploy') {
       steps {
         script {
@@ -80,7 +72,6 @@ pipeline {
                 cd ../..
               '''
 
-              /* 🔥 FETCH ALL OUTPUTS */
               script {
                 env.ALB_DNS = sh(script: "cd ${TF_DIR} && terraform output -raw alb_dns", returnStdout: true).trim()
                 env.EC2_IP = sh(script: "cd ${TF_DIR} && terraform output -raw ec2_public_ip", returnStdout: true).trim()
@@ -95,13 +86,11 @@ pipeline {
                 env.CF_ID = sh(script: "cd ${TF_DIR} && terraform output -raw cloudfront_id", returnStdout: true).trim()
               }
 
-              /* INVENTORY */
               sh '''
                 echo "[app]" > ${ANSIBLE_DIR}/inventory.ini
                 echo "${EC2_IP} ansible_user=ubuntu" >> ${ANSIBLE_DIR}/inventory.ini
               '''
 
-              /* DEPLOY BACKEND */
               sshagent(['hsncloud-key']) {
                 sh '''
                   cd ${ANSIBLE_DIR}
@@ -118,20 +107,14 @@ pipeline {
                 '''
               }
 
-              /* FRONTEND */
-              sh '${SCRIPTS_DIR}/upload-frontend.sh $S3_BUCKET'
-
-              /* CACHE */
-              sh '${SCRIPTS_DIR}/invalidate-cache.sh $CF_ID'
+              sh "${SCRIPTS_DIR}/upload-frontend.sh ${S3_BUCKET}"
+              sh "${SCRIPTS_DIR}/invalidate-cache.sh ${CF_ID}"
             }
           }
         }
       }
     }
 
-    /* =======================
-       VALIDATE
-       ======================= */
     stage('Validate') {
       steps {
         script {
@@ -169,9 +152,6 @@ pipeline {
       }
     }
 
-    /* =======================
-       COMPLETE
-       ======================= */
     stage('Complete') {
       steps {
         sh 'true'
