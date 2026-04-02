@@ -17,9 +17,9 @@ pipeline {
   stages {
 
     /* =======================
-       COMPLETE
+       PREPARE
        ======================= */
-    stage('Complete') {
+    stage('Prepare') {
       steps {
         checkout scm
       }
@@ -39,9 +39,9 @@ pipeline {
     }
 
     /* =======================
-       DEPLOY (DESTROY LOGIC)
+       DESTROY
        ======================= */
-    stage('Deploy') {
+    stage('Destroy') {
       when {
         expression {
           params.DESTROY_TARGET == 'ec2'
@@ -54,7 +54,7 @@ pipeline {
              credentialsId: 'account-c-aws']
           ]) {
             sh '''
-              set +e
+              set -e
 
               echo "=============================="
               echo "Destroying EC2 infrastructure"
@@ -79,41 +79,11 @@ pipeline {
     }
 
     /* =======================
-       SETUP
+       COMPLETE
        ======================= */
-    stage('Setup') {
+    stage('Complete') {
       steps {
-        sh '''
-          echo "Destroy setup stage started..."
-          sleep 5
-          echo "Destroy setup stage completed."
-        '''
-      }
-    }
-
-    /* =======================
-       BUILD
-       ======================= */
-    stage('Build') {
-      steps {
-        sh '''
-          echo "Destroy build stage started..."
-          sleep 5
-          echo "Destroy build stage completed."
-        '''
-      }
-    }
-
-    /* =======================
-       PREPARE
-       ======================= */
-    stage('Prepare') {
-      steps {
-        sh '''
-          echo "Destroy prepare stage started..."
-          sleep 5
-          echo "Destroy prepare stage completed."
-        '''
+        sh 'echo "Destroy pipeline completed successfully"'
       }
     }
 
