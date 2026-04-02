@@ -3,6 +3,8 @@ resource "aws_instance" "app" {
   instance_type = "m7i-flex.large"
   key_name      = var.key_name
 
+  subnet_id = data.aws_subnets.default.ids[0]
+
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
 
   tags = {
