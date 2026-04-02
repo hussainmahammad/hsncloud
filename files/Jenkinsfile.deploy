@@ -67,7 +67,7 @@ pipeline {
               sh '''
                 set -e
                 cd ${TF_DIR}
-                terraform init
+                terraform init -reconfigure
                 terraform apply -auto-approve
                 cd ../..
               '''
