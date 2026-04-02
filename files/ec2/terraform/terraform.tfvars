@@ -3,4 +3,4 @@ instance_type = "t3.micro"
 
 key_name = "hsncloud-key"   # already created
 
-app_name = "hsncloud"
+app_name = "hsncloud-V1"
