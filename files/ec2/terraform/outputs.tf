@@ -11,7 +11,8 @@ output "db_user" {
 }
 
 output "db_password" {
-  value = aws_db_instance.db.password
+  value     = aws_db_instance.db.password
+  sensitive = true
 }
 
 output "alb_dns" {
