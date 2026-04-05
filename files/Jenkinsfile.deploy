@@ -91,7 +91,7 @@ pipeline {
                 echo "${EC2_IP} ansible_user=ubuntu" >> ${ANSIBLE_DIR}/inventory.ini
               '''
 
-              sshagent(['hsncloud-key']) {
+              sshagent(['hussaincloud']) {
                 sh '''
                   cd ${ANSIBLE_DIR}
 
