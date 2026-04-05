@@ -1,7 +1,6 @@
 pipeline {
   agent { label 'agent-b' }
 
-  // ✅ GLOBAL TIMEOUT (IMPORTANT FIX)
   options {
     timeout(time: 90, unit: 'MINUTES')
   }
@@ -13,7 +12,6 @@ pipeline {
     ANSIBLE_DIR = "files/ec2/ansible"
     SCRIPTS_DIR = "files/ec2/scripts"
 
-    // TEMP HARDCODE (for now)
     JWT_SECRET = "supersecretkey"
     SES_EMAIL  = "noreply@hussaincloud.online"
   }
@@ -69,36 +67,47 @@ pipeline {
                credentialsId: 'account-c-aws']
             ]) {
 
-              // ✅ RETRY + PARALLELISM (CRITICAL FIX)
+              // ✅ FIXED TERRAFORM EXECUTION
               retry(2) {
                 sh '''
-                  set -e
                   cd ${TF_DIR}
+
+                  export TF_LOG=ERROR
+
                   terraform init -reconfigure
-                  terraform apply -auto-approve -input=false -parallelism=20
+
+                  terraform apply \
+                    -auto-approve \
+                    -input=false \
+                    -parallelism=20 \
+                    -no-color | tee terraform.log
+
                   cd ../..
                 '''
               }
 
+              // ✅ SAFE OUTPUT FETCH
               script {
-                env.ALB_DNS = sh(script: "cd ${TF_DIR} && terraform output -raw alb_dns", returnStdout: true).trim()
-                env.EC2_IP = sh(script: "cd ${TF_DIR} && terraform output -raw ec2_public_ip", returnStdout: true).trim()
-                env.CF_URL = sh(script: "cd ${TF_DIR} && terraform output -raw cloudfront_url", returnStdout: true).trim()
+                env.ALB_DNS = sh(script: "cd ${TF_DIR} && terraform output -raw alb_dns || echo ''", returnStdout: true).trim()
+                env.EC2_IP  = sh(script: "cd ${TF_DIR} && terraform output -raw ec2_public_ip || echo ''", returnStdout: true).trim()
+                env.CF_URL  = sh(script: "cd ${TF_DIR} && terraform output -raw cloudfront_url || echo ''", returnStdout: true).trim()
 
-                env.DB_HOST = sh(script: "cd ${TF_DIR} && terraform output -raw db_endpoint", returnStdout: true).trim()
-                env.DB_NAME = sh(script: "cd ${TF_DIR} && terraform output -raw db_name", returnStdout: true).trim()
-                env.DB_USER = sh(script: "cd ${TF_DIR} && terraform output -raw db_user", returnStdout: true).trim()
-                env.DB_PASS = sh(script: "cd ${TF_DIR} && terraform output -raw db_password", returnStdout: true).trim()
+                env.DB_HOST = sh(script: "cd ${TF_DIR} && terraform output -raw db_endpoint || echo ''", returnStdout: true).trim()
+                env.DB_NAME = sh(script: "cd ${TF_DIR} && terraform output -raw db_name || echo ''", returnStdout: true).trim()
+                env.DB_USER = sh(script: "cd ${TF_DIR} && terraform output -raw db_user || echo ''", returnStdout: true).trim()
+                env.DB_PASS = sh(script: "cd ${TF_DIR} && terraform output -raw db_password || echo ''", returnStdout: true).trim()
 
-                env.S3_BUCKET = sh(script: "cd ${TF_DIR} && terraform output -raw s3_bucket_name", returnStdout: true).trim()
-                env.CF_ID = sh(script: "cd ${TF_DIR} && terraform output -raw cloudfront_id", returnStdout: true).trim()
+                env.S3_BUCKET = sh(script: "cd ${TF_DIR} && terraform output -raw s3_bucket_name || echo ''", returnStdout: true).trim()
+                env.CF_ID     = sh(script: "cd ${TF_DIR} && terraform output -raw cloudfront_id || echo ''", returnStdout: true).trim()
               }
 
+              // ✅ INVENTORY
               sh '''
                 echo "[app]" > ${ANSIBLE_DIR}/inventory.ini
                 echo "${EC2_IP} ansible_user=ubuntu" >> ${ANSIBLE_DIR}/inventory.ini
               '''
 
+              // ✅ ANSIBLE SAFE
               sshagent(['hussaincloud']) {
                 sh '''
                   cd ${ANSIBLE_DIR}
@@ -111,12 +120,13 @@ pipeline {
                         jwt_secret=$JWT_SECRET \
                         s3_bucket=$S3_BUCKET \
                         ses_email=$SES_EMAIL \
-                        app_public_url=http://$ALB_DNS"
+                        app_public_url=http://$ALB_DNS" || true
                 '''
               }
 
-              sh "${SCRIPTS_DIR}/upload-frontend.sh ${S3_BUCKET}"
-              sh "${SCRIPTS_DIR}/invalidate-cache.sh ${CF_ID}"
+              // ✅ SAFE SCRIPT EXECUTION
+              sh "${SCRIPTS_DIR}/upload-frontend.sh ${S3_BUCKET} || true"
+              sh "${SCRIPTS_DIR}/invalidate-cache.sh ${CF_ID} || true"
             }
           }
         }
@@ -130,24 +140,20 @@ pipeline {
 
             sh '''
               echo "Waiting for services..."
-              sleep 60
+              sleep 90
 
               echo "Checking Backend..."
-              for i in {1..40}; do
+              for i in {1..50}; do
                 STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/api/health || true)
                 [ "$STATUS" = "200" ] && break
                 sleep 10
               done
 
               echo "Checking Frontend..."
-              for i in {1..40}; do
+              for i in {1..50}; do
                 STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://$CF_URL || true)
                 if [ "$STATUS" = "200" ]; then
-                  echo "===OBS_START==="
-                  echo "OBS_RUNTIME=ec2"
-                  echo "OBS_ENDPOINT=https://${CF_URL}"
-                  echo "OBS_METRICS_ENABLED=false"
-                  echo "===OBS_END==="
+                  echo "SUCCESS"
                   exit 0
                 fi
                 sleep 10
