@@ -1,6 +1,11 @@
 pipeline {
   agent { label 'agent-b' }
 
+  // ✅ GLOBAL TIMEOUT (IMPORTANT FIX)
+  options {
+    timeout(time: 90, unit: 'MINUTES')
+  }
+
   environment {
     AWS_REGION = "us-east-1"
 
@@ -55,12 +60,6 @@ pipeline {
     }
 
     stage('Deploy') {
-
-      // ✅ ADDED TIMEOUT HERE (30 mins)
-      options {
-        timeout(time: 30, unit: 'MINUTES')
-      }
-
       steps {
         script {
           if (params.DEPLOY_TARGET == 'ec2') {
@@ -70,13 +69,16 @@ pipeline {
                credentialsId: 'account-c-aws']
             ]) {
 
-              sh '''
-                set -e
-                cd ${TF_DIR}
-                terraform init -reconfigure
-                terraform apply -auto-approve
-                cd ../..
-              '''
+              // ✅ RETRY + PARALLELISM (CRITICAL FIX)
+              retry(2) {
+                sh '''
+                  set -e
+                  cd ${TF_DIR}
+                  terraform init -reconfigure
+                  terraform apply -auto-approve -input=false -parallelism=20
+                  cd ../..
+                '''
+              }
 
               script {
                 env.ALB_DNS = sh(script: "cd ${TF_DIR} && terraform output -raw alb_dns", returnStdout: true).trim()
@@ -128,17 +130,17 @@ pipeline {
 
             sh '''
               echo "Waiting for services..."
-              sleep 40
+              sleep 60
 
               echo "Checking Backend..."
-              for i in {1..30}; do
+              for i in {1..40}; do
                 STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/api/health || true)
                 [ "$STATUS" = "200" ] && break
                 sleep 10
               done
 
               echo "Checking Frontend..."
-              for i in {1..30}; do
+              for i in {1..40}; do
                 STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://$CF_URL || true)
                 if [ "$STATUS" = "200" ]; then
                   echo "===OBS_START==="
