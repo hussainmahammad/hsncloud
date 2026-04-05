@@ -1,6 +1,8 @@
 resource "aws_db_subnet_group" "db_subnet" {
   name       = "${var.app_name}-db-subnet"
-  subnet_ids = data.aws_subnets.default.ids
+
+  # ✅ limit subnets (prevents slow placement issues)
+  subnet_ids = slice(data.aws_subnets.default.ids, 0, 2)
 
   tags = {
     Name = "${var.app_name}-db-subnet"
@@ -37,13 +39,23 @@ resource "aws_db_instance" "db" {
 
   db_name  = "hsncloud"
   username = "admin"
-  password = "Admin12345!"   # ⚠️ we improve later
+  password = "Admin12345!"
 
   publicly_accessible = false
-  skip_final_snapshot = true
 
+  # ✅ CRITICAL FIXES (DO NOT REMOVE)
+  apply_immediately       = true
+  backup_retention_period = 0
+  storage_type            = "gp2"
+  skip_final_snapshot     = true
+
+  # ✅ networking
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
   db_subnet_group_name   = aws_db_subnet_group.db_subnet.name
 
+  # ✅ fastest config
   multi_az = false
+
+  # ✅ avoids deletion issues in demo cycles
+  deletion_protection = false
 }
