@@ -1,7 +1,9 @@
 resource "aws_cloudfront_distribution" "cdn" {
 
+  wait_for_deployment = false   # ✅ ADD THIS
+
   # -----------------------------
-  # S3 FRONTEND ORIGIN (FIXED)
+  # S3 FRONTEND ORIGIN
   # -----------------------------
   origin {
     domain_name = aws_s3_bucket_website_configuration.frontend.website_endpoint
@@ -16,7 +18,7 @@ resource "aws_cloudfront_distribution" "cdn" {
   }
 
   # -----------------------------
-  # ALB BACKEND ORIGIN (FIXED)
+  # ALB BACKEND ORIGIN
   # -----------------------------
   origin {
     domain_name = aws_lb.app_alb.dns_name
@@ -30,9 +32,6 @@ resource "aws_cloudfront_distribution" "cdn" {
     }
   }
 
-  # -----------------------------
-  # DEFAULT → FRONTEND
-  # -----------------------------
   default_cache_behavior {
     target_origin_id       = "s3-origin"
     viewer_protocol_policy = "redirect-to-https"
@@ -49,9 +48,6 @@ resource "aws_cloudfront_distribution" "cdn" {
     }
   }
 
-  # -----------------------------
-  # /api → BACKEND (ALB)
-  # -----------------------------
   ordered_cache_behavior {
     path_pattern     = "/api/*"
     target_origin_id = "alb-origin"
@@ -63,8 +59,7 @@ resource "aws_cloudfront_distribution" "cdn" {
 
     forwarded_values {
       query_string = true
-
-      headers = ["*"]
+      headers      = ["*"]
 
       cookies {
         forward = "all"
@@ -72,9 +67,6 @@ resource "aws_cloudfront_distribution" "cdn" {
     }
   }
 
-  # -----------------------------
-  # GENERAL SETTINGS
-  # -----------------------------
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
