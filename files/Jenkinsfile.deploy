@@ -55,6 +55,12 @@ pipeline {
     }
 
     stage('Deploy') {
+
+      // ✅ ADDED TIMEOUT HERE (30 mins)
+      options {
+        timeout(time: 30, unit: 'MINUTES')
+      }
+
       steps {
         script {
           if (params.DEPLOY_TARGET == 'ec2') {
