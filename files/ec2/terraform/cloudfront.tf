@@ -56,7 +56,7 @@ resource "aws_cloudfront_distribution" "cdn" {
     path_pattern     = "/api/*"
     target_origin_id = "alb-origin"
 
-    allowed_methods = ["GET", "HEAD", "OPTIONS", "POST", "PUT", "DELETE"]
+    allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods  = ["GET", "HEAD"]
 
     viewer_protocol_policy = "redirect-to-https"
