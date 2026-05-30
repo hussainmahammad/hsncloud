@@ -63,6 +63,10 @@ pipeline {
               cd ${TF_DIR}
 
               terraform init
+
+              # Empty frontend bucket before destroy
+              aws s3 rm s3://hsncloudv1-frontend-cc40715d --recursive || true
+
               terraform destroy -auto-approve
 
               echo ""
