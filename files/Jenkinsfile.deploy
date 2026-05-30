@@ -80,13 +80,15 @@ pipeline {
                 env.CF_ID     = sh(script: "cd ${TF_DIR} && terraform output -raw cloudfront_id", returnStdout: true).trim()
               }
 
-              // ✅ Inventory
+              // ✅ Inventory (FIXED)
               sh '''
-                echo "[app]" > ${ANSIBLE_DIR}/inventory.ini
-                echo "${EC2_IP} ansible_user=ubuntu" >> ${ANSIBLE_DIR}/inventory.ini
+                cat > ${ANSIBLE_DIR}/inventory.ini <<EOF
+[app]
+${EC2_IP} ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+EOF
               '''
 
-              // ✅ Ansible (FIXED)
+              // ✅ Ansible
               sshagent(['hussaincloud']) {
                 sh '''
                   cd ${ANSIBLE_DIR}
@@ -103,7 +105,7 @@ pipeline {
                 '''
               }
 
-              // ✅ FIX: script permissions
+              // ✅ Script permissions
               sh '''
                 chmod +x ${SCRIPTS_DIR}/*.sh
               '''
