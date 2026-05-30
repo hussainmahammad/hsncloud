@@ -53,7 +53,6 @@ pipeline {
                credentialsId: 'account-c-aws']
             ]) {
 
-              // ✅ Terraform
               retry(2) {
                 sh '''
                   cd ${TF_DIR}
@@ -63,14 +62,15 @@ pipeline {
                 '''
               }
 
-              // ✅ Outputs
               script {
                 env.ALB_DNS = sh(script: "cd ${TF_DIR} && terraform output -raw alb_dns", returnStdout: true).trim()
                 env.EC2_IP  = sh(script: "cd ${TF_DIR} && terraform output -raw ec2_public_ip", returnStdout: true).trim()
                 env.CF_URL  = sh(script: "cd ${TF_DIR} && terraform output -raw cloudfront_url", returnStdout: true).trim()
 
-                // 🔥 FIX: remove :3306
-                env.DB_HOST = sh(script: "cd ${TF_DIR} && terraform output -raw db_endpoint", returnStdout: true).trim().split(':')[0]
+                env.DB_HOST = sh(
+                  script: "cd ${TF_DIR} && terraform output -raw db_endpoint",
+                  returnStdout: true
+                ).trim().split(':')[0]
 
                 env.DB_NAME = sh(script: "cd ${TF_DIR} && terraform output -raw db_name", returnStdout: true).trim()
                 env.DB_USER = sh(script: "cd ${TF_DIR} && terraform output -raw db_user", returnStdout: true).trim()
@@ -80,7 +80,6 @@ pipeline {
                 env.CF_ID     = sh(script: "cd ${TF_DIR} && terraform output -raw cloudfront_id", returnStdout: true).trim()
               }
 
-              // ✅ Inventory (FIXED)
               sh '''
                 cat > ${ANSIBLE_DIR}/inventory.ini <<EOF
 [app]
@@ -88,7 +87,6 @@ ${EC2_IP} ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=
 EOF
               '''
 
-              // ✅ Ansible
               sshagent(['hussaincloud']) {
                 sh '''
                   cd ${ANSIBLE_DIR}
@@ -108,12 +106,10 @@ EOF
                 '''
               }
 
-              // ✅ Script permissions
               sh '''
                 chmod +x ${SCRIPTS_DIR}/*.sh
               '''
 
-              // ✅ Scripts
               sh "${SCRIPTS_DIR}/upload-frontend.sh ${S3_BUCKET}"
               sh "${SCRIPTS_DIR}/invalidate-cache.sh ${CF_ID}"
             }
@@ -122,59 +118,62 @@ EOF
       }
     }
 
-stage('Validate') {
-  steps {
-    sh '''
-      sleep 90
+    stage('Validate') {
+      steps {
+        sh '''
+          sleep 90
 
-      BACKEND_OK=false
-      FRONTEND_OK=false
+          BACKEND_OK=false
+          FRONTEND_OK=false
 
-      for i in {1..50}; do
-        STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/api/health || true)
+          for i in {1..50}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/api/health || true)
 
-        if [ "$STATUS" = "200" ]; then
-          BACKEND_OK=true
-          break
-        fi
+            if [ "$STATUS" = "200" ]; then
+              BACKEND_OK=true
+              break
+            fi
 
-        sleep 10
-      done
+            sleep 10
+          done
 
-      for i in {1..50}; do
-        STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://$CF_URL || true)
+          for i in {1..50}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://$CF_URL || true)
 
-        if [ "$STATUS" = "200" ]; then
-          FRONTEND_OK=true
-          break
-        fi
+            if [ "$STATUS" = "200" ]; then
+              FRONTEND_OK=true
+              break
+            fi
 
-        sleep 10
-      done
+            sleep 10
+          done
 
-      if [ "$BACKEND_OK" = "true" ] && [ "$FRONTEND_OK" = "true" ]; then
+          if [ "$BACKEND_OK" = "true" ] && [ "$FRONTEND_OK" = "true" ]; then
 
-        echo "=================================="
-        echo "🚀 HSNCloud Deployment Successful"
-        echo "=================================="
+            echo "=================================="
+            echo "🚀 HSNCloud Deployment Successful"
+            echo "=================================="
 
-        echo "===OBS_START==="
-        echo "OBS_RUNTIME=ec2"
-        echo "OBS_BACKEND_URL=http://$ALB_DNS"
-        echo "OBS_FRONTEND_URL=https://$CF_URL"
-        echo "OBS_EC2_IP=$EC2_IP"
-        echo "OBS_S3_BUCKET=$S3_BUCKET"
-        echo "OBS_DB_HOST=$DB_HOST"
-        echo "OBS_DB_NAME=$DB_NAME"
-        echo "OBS_METRICS_ENABLED=true"
-        echo "OBS_METRICS_TYPE=ec2"
-        echo "===OBS_END==="
+            echo "===OBS_START==="
+            echo "OBS_RUNTIME=ec2"
+            echo "OBS_BACKEND_URL=http://$ALB_DNS"
+            echo "OBS_FRONTEND_URL=https://$CF_URL"
+            echo "OBS_EC2_IP=$EC2_IP"
+            echo "OBS_S3_BUCKET=$S3_BUCKET"
+            echo "OBS_DB_HOST=$DB_HOST"
+            echo "OBS_DB_NAME=$DB_NAME"
+            echo "OBS_METRICS_ENABLED=true"
+            echo "OBS_METRICS_TYPE=ec2"
+            echo "===OBS_END==="
 
-        exit 0
-      fi
+            exit 0
+          fi
 
-      echo "❌ Application validation failed"
-      exit 1
-    '''
+          echo "❌ Application validation failed"
+          exit 1
+        '''
+      }
+    }
+
   }
 }
