@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket  = "hussainmahammad.online-tfstates"
+    bucket  = "tfstates-hussainmahammad.online"
     key     = "hsncloud/terraform.tfstate"
     region  = "us-east-1"
     encrypt = true
