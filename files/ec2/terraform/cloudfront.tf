@@ -1,6 +1,6 @@
 resource "aws_cloudfront_distribution" "cdn" {
 
-  wait_for_deployment = false   # ✅ ADD THIS
+  wait_for_deployment = false
 
   # -----------------------------
   # S3 FRONTEND ORIGIN
@@ -70,6 +70,21 @@ resource "aws_cloudfront_distribution" "cdn" {
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
+
+  # -----------------------------
+  # SPA ROUTING FIX
+  # -----------------------------
+  custom_error_response {
+    error_code         = 404
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
+
+  custom_error_response {
+    error_code         = 403
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
 
   restrictions {
     geo_restriction {
