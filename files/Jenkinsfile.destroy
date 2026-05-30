@@ -1,120 +1,91 @@
 pipeline {
-agent { label 'agent-b' }
+  agent { label 'agent-b' }
 
-environment {
-AWS_REGION = "us-east-1"
-TF_DIR = "files/ec2/terraform"
-}
-
-parameters {
-choice(
-name: 'DESTROY_TARGET',
-choices: ['ec2'],
-description: 'Choose what to destroy'
-)
-}
-
-stages {
-
-```
-/* =======================
-   PREPARE
-   ======================= */
-stage('Prepare') {
-  steps {
-    checkout scm
+  environment {
+    AWS_REGION = "us-east-1"
+    TF_DIR = "files/ec2/terraform"
   }
-}
 
-/* =======================
-   VALIDATE
-   ======================= */
-stage('Validate') {
-  steps {
-    sh '''
-      echo "Destroy validate stage started..."
-      sleep 5
-      echo "Destroy validate stage completed."
-    '''
+  parameters {
+    choice(
+      name: 'DESTROY_TARGET',
+      choices: ['ec2'],
+      description: 'Choose what to destroy'
+    )
   }
-}
 
-/* =======================
-   DESTROY
-   ======================= */
-stage('Destroy') {
-  when {
-    expression {
-      params.DESTROY_TARGET == 'ec2'
+  stages {
+
+    stage('Prepare') {
+      steps {
+        checkout scm
+      }
     }
-  }
-  steps {
-    script {
-      withCredentials([
-        [$class: 'AmazonWebServicesCredentialsBinding',
-         credentialsId: 'account-c-aws']
-      ]) {
+
+    stage('Validate') {
+      steps {
         sh '''
-          set -e
-
-          echo "=============================="
-          echo "Destroying EC2 infrastructure"
-          echo "=============================="
-
-          cd ${TF_DIR}
-
-          terraform init
-
-          echo "Looking for frontend bucket in Terraform state..."
-
-          BUCKET_NAME=$(terraform state show aws_s3_bucket.frontend 2>/dev/null | grep '^bucket' | head -1 | awk -F'= ' '{print $2}' | tr -d '"')
-
-          if [ ! -z "$BUCKET_NAME" ]; then
-            echo "Found bucket: $BUCKET_NAME"
-
-            aws s3 rm s3://$BUCKET_NAME --recursive || true
-
-            aws s3api delete-objects \
-              --bucket $BUCKET_NAME \
-              --delete "$(aws s3api list-object-versions \
-              --bucket $BUCKET_NAME \
-              --output json \
-              --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}')" \
-              || true
-
-            aws s3api delete-objects \
-              --bucket $BUCKET_NAME \
-              --delete "$(aws s3api list-object-versions \
-              --bucket $BUCKET_NAME \
-              --output json \
-              --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}')" \
-              || true
-          fi
-
-          terraform destroy -auto-approve
-
-          echo ""
-          echo "✅ EC2 infrastructure destroyed successfully"
-
-          echo "===OBS_START==="
-          echo "OBS_RUNTIME=ec2"
-          echo "OBS_STATUS=destroyed"
-          echo "===OBS_END==="
+          echo "Destroy validate stage started..."
+          sleep 5
+          echo "Destroy validate stage completed."
         '''
       }
     }
-  }
-}
 
-/* =======================
-   COMPLETE
-   ======================= */
-stage('Complete') {
-  steps {
-    sh 'echo "Destroy pipeline completed successfully"'
-  }
-}
-```
+    stage('Destroy') {
+      when {
+        expression {
+          params.DESTROY_TARGET == 'ec2'
+        }
+      }
 
-}
+      steps {
+        script {
+          withCredentials([
+            [$class: 'AmazonWebServicesCredentialsBinding',
+             credentialsId: 'account-c-aws']
+          ]) {
+
+            sh '''
+              set -e
+
+              echo "=============================="
+              echo "Destroying EC2 infrastructure"
+              echo "=============================="
+
+              cd ${TF_DIR}
+
+              terraform init
+
+              echo "Locating frontend bucket from Terraform state..."
+
+              BUCKET_NAME=$(terraform state show aws_s3_bucket.frontend 2>/dev/null | awk -F'= ' '/bucket *=/ {gsub(/"/,"",$2); print $2}')
+
+              if [ -n "$BUCKET_NAME" ]; then
+                echo "Found bucket: $BUCKET_NAME"
+
+                aws s3 rm s3://$BUCKET_NAME --recursive || true
+              fi
+
+              terraform destroy -auto-approve
+
+              echo ""
+              echo "✅ EC2 infrastructure destroyed successfully"
+
+              echo "===OBS_START==="
+              echo "OBS_RUNTIME=ec2"
+              echo "OBS_STATUS=destroyed"
+              echo "===OBS_END==="
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Complete') {
+      steps {
+        sh 'echo "Destroy pipeline completed successfully"'
+      }
+    }
+  }
 }
