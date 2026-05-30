@@ -104,7 +104,7 @@ EOF
                         jwt_secret=$JWT_SECRET \
                         s3_bucket=$S3_BUCKET \
                         ses_email=$SES_EMAIL \
-                        app_public_url=http://$ALB_DNS"
+                        app_public_url=https://$CF_URL"
                 '''
               }
 
