@@ -66,3 +66,12 @@
     pm2 save
   args:
     chdir: /home/ubuntu/app/backend
+
+- name: Wait for backend
+  uri:
+    url: http://localhost:5000/api/health
+    status_code: 200
+  register: healthcheck
+  retries: 20
+  delay: 10
+  until: healthcheck.status == 200
