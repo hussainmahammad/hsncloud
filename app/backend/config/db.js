@@ -1,11 +1,7 @@
 import mysql from "mysql2";
-import fs from "fs";
 import dotenv from "dotenv";
 
 dotenv.config();
-
-// Read SSL certificate (downloaded from AWS)
-const sslCert = fs.readFileSync("./global-bundle.pem");
 
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
@@ -13,9 +9,6 @@ const db = mysql.createConnection({
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
   port: 3306,
-  ssl: {
-    ca: sslCert,
-  },
 });
 
 db.connect((err) => {
