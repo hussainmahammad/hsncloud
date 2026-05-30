@@ -122,27 +122,59 @@ EOF
       }
     }
 
-    stage('Validate') {
-      steps {
-        sh '''
-          sleep 90
+stage('Validate') {
+  steps {
+    sh '''
+      sleep 90
 
-          for i in {1..50}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/api/health || true)
-            [ "$STATUS" = "200" ] && break
-            sleep 10
-          done
+      BACKEND_OK=false
+      FRONTEND_OK=false
 
-          for i in {1..50}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://$CF_URL || true)
-            [ "$STATUS" = "200" ] && exit 0
-            sleep 10
-          done
+      for i in {1..50}; do
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$ALB_DNS/api/health || true)
 
-          exit 1
-        '''
-      }
-    }
+        if [ "$STATUS" = "200" ]; then
+          BACKEND_OK=true
+          break
+        fi
 
+        sleep 10
+      done
+
+      for i in {1..50}; do
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://$CF_URL || true)
+
+        if [ "$STATUS" = "200" ]; then
+          FRONTEND_OK=true
+          break
+        fi
+
+        sleep 10
+      done
+
+      if [ "$BACKEND_OK" = "true" ] && [ "$FRONTEND_OK" = "true" ]; then
+
+        echo "=================================="
+        echo "🚀 HSNCloud Deployment Successful"
+        echo "=================================="
+
+        echo "===OBS_START==="
+        echo "OBS_RUNTIME=ec2"
+        echo "OBS_BACKEND_URL=http://$ALB_DNS"
+        echo "OBS_FRONTEND_URL=https://$CF_URL"
+        echo "OBS_EC2_IP=$EC2_IP"
+        echo "OBS_S3_BUCKET=$S3_BUCKET"
+        echo "OBS_DB_HOST=$DB_HOST"
+        echo "OBS_DB_NAME=$DB_NAME"
+        echo "OBS_METRICS_ENABLED=true"
+        echo "OBS_METRICS_TYPE=ec2"
+        echo "===OBS_END==="
+
+        exit 0
+      fi
+
+      echo "❌ Application validation failed"
+      exit 1
+    '''
   }
 }
