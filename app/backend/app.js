@@ -33,8 +33,17 @@ app.use("/public", shareRoutes);
 
 // ================= HEALTH CHECK =================
 
+// Root route
 app.get("/", (req, res) => {
   res.send("API is working 🚀");
+});
+
+// ALB / Jenkins Health Check
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    message: "Backend is running",
+  });
 });
 
 // ================= GLOBAL ERROR HANDLER =================
