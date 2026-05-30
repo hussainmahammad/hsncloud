@@ -149,29 +149,28 @@ EOF
           done
 
           if [ "$BACKEND_OK" = "true" ] && [ "$FRONTEND_OK" = "true" ]; then
-
-            echo "=================================="
-            echo "🚀 HSNCloud Deployment Successful"
-            echo "=================================="
-
-            echo "===OBS_START==="
-            echo "OBS_RUNTIME=ec2"
-            echo "OBS_BACKEND_URL=http://$ALB_DNS"
-            echo "OBS_FRONTEND_URL=https://$CF_URL"
-            echo "OBS_EC2_IP=$EC2_IP"
-            echo "OBS_S3_BUCKET=$S3_BUCKET"
-            echo "OBS_DB_HOST=$DB_HOST"
-            echo "OBS_DB_NAME=$DB_NAME"
-            echo "OBS_METRICS_ENABLED=true"
-            echo "OBS_METRICS_TYPE=ec2"
-            echo "===OBS_END==="
-
+            echo "✅ Validation passed"
             exit 0
           fi
 
           echo "❌ Application validation failed"
           exit 1
         '''
+      }
+    }
+
+    stage('Complete') {
+      steps {
+        echo 'Complete phase'
+
+
+        sh '''
+          echo "OBS_ENDPOINT=https://$CF_URL"
+          echo "OBS_METRICS_ENABLED=true"
+          echo "OBS_METRICS_TYPE=ec2"
+        '''
+
+        sleep 5
       }
     }
 
